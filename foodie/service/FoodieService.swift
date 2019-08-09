@@ -89,41 +89,37 @@ class FoodieService {
     
   func saveCurrentList(withName name: String?) {
     guard
-      let name = name, !name.isEmpty,
-      !places.isEmpty
-      else { return }
-    
-    
-    let privateContext = CoreDataStack().persistentContainer.newBackgroundContext()
-    
-    guard
-      let restaurantEntity = NSEntityDescription.entity(forEntityName: "Restaurant", in: privateContext),
-      let storeEntity = NSEntityDescription.entity(forEntityName: "StoredLocation", in: privateContext)
-      else { return }
-    
-    var restaurants = [Restaurant]()
-    do {
-      for place in places {
-        let restaurant = Restaurant.init(entity: restaurantEntity, insertInto: privateContext)
-        restaurant.name = place.placeInfo.name
-        restaurant.address = place.placeInfo.location.address
-        restaurant.website = place.placeInfo.website
-        
-        if let url = URL(string: place.placeInfo.imageURL), let imageData = NSData(contentsOf: url) {
-          restaurant.image = imageData
+      let managedObjectContext = managedObjectContext,
+      let name = name,!name.isEmpty
+    else {return}
+//let privateContext = CoreDataStack().persistentContainer.newBackgroundContext()
+    //managedObjectContext.performAndWait {[weak self] in
+    managedObjectContext.perform { [weak self] in
+        guard let places = self?.places else {return}
+        var resaurants = [Restaurant]()
+        do {
+          for place in places {
+            let restaurant = Restaurant(context: managedObjectContext)
+            restaurant.name = place.placeInfo.name
+            restaurant.address = place.placeInfo.location.address
+            restaurant.website = place.placeInfo.website
+            if let imageURl = URL(string: place.placeInfo.imageURL),let imageData = NSData(contentsOf: imageURl) {
+              restaurant.image = imageData
+            }
+            resaurants.append(restaurant)
+          }
+          let storeLoactionEntity = StoredLocation(context: managedObjectContext)
+          storeLoactionEntity.name = name
+          storeLoactionEntity.addToRestaurants(NSSet(array: resaurants))
+          try managedObjectContext.save()
+        } catch {
+          print(error.localizedDescription)
         }
         
-        restaurants.append(restaurant)
       }
-      
-      let storedLocation = StoredLocation.init(entity: storeEntity, insertInto: privateContext)
-      storedLocation.name = name
-      storedLocation.addToRestaurants(NSSet(array: restaurants))
-      
-      try privateContext.save()
     }
-    catch let error {
-      print("Save failed: \(error.localizedDescription)")
-    }
-  }}
+    //managedObjectContext.perform
+  //}
+  
+}
 
